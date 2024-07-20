@@ -1,7 +1,21 @@
+"""
+Differential IK controller for the Franka Panda robot arm. (7 joints)
+In the xml file, the actuator are in 'position' type! This is important for the joint space controller to work.
+The default class "panda" specifies the joint range to be range="-2.8973 2.8973"!
+
+Usage: 
+    mjpython diffik_nullspace.py  # Default robot is franka panda
+    mjpython diffik_nullspace.py -n kinova
+    mjpython diffik_nullspace.py -n ur5
+
+Author: @Zi-ang-Cao
+Date: July 2024
+"""
 import mujoco
 import mujoco.viewer
 import numpy as np
 import time
+import click
 
 # Integration timestep in seconds. This corresponds to the amount of time the joint
 # velocities will be integrated for to obtain the desired joint positions.
@@ -23,17 +37,93 @@ gravity_compensation: bool = True
 dt: float = 0.002
 
 # Nullspace P gain.
-Kn = np.asarray([10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
+Kn_7dof = np.asarray([10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
+Kn_6dof = np.asarray([10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
+Kn = {
+    6: Kn_6dof,
+    7: Kn_7dof,
+}
 
 # Maximum allowable joint velocity in rad/s.
 max_angvel = 0.785
 
 
-def main() -> None:
+@click.command()
+@click.option("--name_of_robot", "-n",
+              type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova"]), 
+    default="franka", 
+    help="Name of the robot")
+def main(name_of_robot) -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
+    
+    print(f"Using robot: {name_of_robot}")
+    control_point_name = "attachment_site"
+    dof = 6 if name_of_robot in ["ur5", "ur5e"] else 7
+    if "ur5" in name_of_robot:
+        # Load the model and data.
+        model = mujoco.MjModel.from_xml_path("universal_robots_ur5e/scene.xml")
+
+        body_names = [
+            "shoulder_link",
+            "upper_arm_link",
+            "forearm_link",
+            "wrist_1_link",
+            "wrist_2_link",
+            "wrist_3_link",
+        ]
+
+        joint_names = [
+            "shoulder_pan",
+            "shoulder_lift",
+            "elbow",
+            "wrist_1",
+            "wrist_2",
+            "wrist_3",
+        ]
+    elif "franka" in name_of_robot or "panda" in name_of_robot:
+        model = mujoco.MjModel.from_xml_path("franka_emika_panda/scene.xml")
+        body_names = [
+            "link1",
+            "link2",
+            "link3",
+            "link4",
+            "link5",
+            "link6",
+            "link7",
+        ]
+
+        joint_names = [
+            "joint1",
+            "joint2",
+            "joint3",
+            "joint4",
+            "joint5",
+            "joint6",
+            "joint7",
+        ]
+    elif "kinova" in name_of_robot:
+        model = mujoco.MjModel.from_xml_path("kinova_gen3/scene.xml")
+        body_names = [
+            "shoulder_link",
+            "half_arm_1_link",
+            "half_arm_2_link",
+            "forearm_link",
+            "spherical_wrist_1_link",
+            "spherical_wrist_2_link",
+            "bracelet_link",
+        ]
+
+        joint_names = [
+            "joint_1",
+            "joint_2",
+            "joint_3",
+            "joint_4",
+            "joint_5",
+            "joint_6",
+            "joint_7",
+        ]
 
     # Load the model and data.
-    model = mujoco.MjModel.from_xml_path("franka_emika_panda/scene.xml")
     data = mujoco.MjData(model)
 
     # Enable gravity compensation. Set to 0.0 to disable.
@@ -41,21 +131,11 @@ def main() -> None:
     model.opt.timestep = dt
 
     # End-effector site we wish to control.
-    site_name = "attachment_site"
-    site_id = model.site(site_name).id
+    site_id = model.site(control_point_name).id
 
     # Get the dof and actuator ids for the joints we wish to control. These are copied
     # from the XML file. Feel free to comment out some joints to see the effect on
     # the controller.
-    joint_names = [
-        "joint1",
-        "joint2",
-        "joint3",
-        "joint4",
-        "joint5",
-        "joint6",
-        "joint7",
-    ]
     dof_ids = np.array([model.joint(name).id for name in joint_names])
     actuator_ids = np.array([model.actuator(name).id for name in joint_names])
 
@@ -111,7 +191,7 @@ def main() -> None:
             dq = jac.T @ np.linalg.solve(jac @ jac.T + diag, twist)
 
             # Nullspace control biasing joint velocities towards the home configuration.
-            dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn * (q0 - data.qpos[dof_ids]))
+            dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn[dof] * (q0 - data.qpos[dof_ids]))
 
             # Clamp maximum joint velocity.
             dq_abs_max = np.abs(dq).max()

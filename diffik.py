@@ -4,7 +4,9 @@ In the xml file, the actuator are in 'position' type! This is important for the 
 The default class "ur5e" specifies the joint range to be range="-6.28319 6.28319"!
 
 Usage: 
-    mjpython diffik.py
+    mjpython diffik.py  # Default robot is ur5e
+    mjpython diffik.py -n franka
+    mjpython diffik.py -n kinova
 
 Author: @Zi-ang-Cao
 Date: July 2024
