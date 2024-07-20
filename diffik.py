@@ -1,7 +1,19 @@
+"""
+Differential IK controller for the Universal Robots UR5e robot arm. (6 joints)
+In the xml file, the actuator are in 'position' type! This is important for the joint space controller to work.
+The default class "ur5e" specifies the joint range to be range="-6.28319 6.28319"!
+
+Usage: 
+    mjpython diffik.py
+
+Author: @Zi-ang-Cao
+Date: July 2024
+"""
 import mujoco
 import mujoco.viewer
 import numpy as np
 import time
+import click
 
 # Integration timestep in seconds. This corresponds to the amount of time the joint
 # velocities will be integrated for to obtain the desired joint positions.
@@ -20,12 +32,81 @@ dt: float = 0.002
 # Maximum allowable joint velocity in rad/s. Set to 0 to disable.
 max_angvel = 0.0
 
-
-def main() -> None:
+@click.command()
+@click.option("--name_of_robot", "-n",
+              type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova"]), 
+    default="ur5", 
+    help="Name of the robot")
+def main(name_of_robot) -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
 
+    print(f"Using robot: {name_of_robot}")
+    if "ur5" in name_of_robot:
+        # Load the model and data.
+        model = mujoco.MjModel.from_xml_path("universal_robots_ur5e/scene.xml")
+        control_point_name = "attachment_site"
+        body_names = [
+            "shoulder_link",
+            "upper_arm_link",
+            "forearm_link",
+            "wrist_1_link",
+            "wrist_2_link",
+            "wrist_3_link",
+        ]
+
+        joint_names = [
+            "shoulder_pan",
+            "shoulder_lift",
+            "elbow",
+            "wrist_1",
+            "wrist_2",
+            "wrist_3",
+        ]
+    elif "franka" in name_of_robot or "panda" in name_of_robot:
+        model = mujoco.MjModel.from_xml_path("franka_emika_panda/scene.xml")
+        control_point_name = "attachment_site"
+        body_names = [
+            "link1",
+            "link2",
+            "link3",
+            "link4",
+            "link5",
+            "link6",
+            "link7",
+        ]
+
+        joint_names = [
+            "joint1",
+            "joint2",
+            "joint3",
+            "joint4",
+            "joint5",
+            "joint6",
+            "joint7",
+        ]
+    elif "kinova" in name_of_robot:
+        model = mujoco.MjModel.from_xml_path("kinova_gen3_backup/scene.xml")
+        body_names = [
+            "link1",
+            "link2",
+            "link3",
+            "link4",
+            "link5",
+            "link6",
+            "link7",
+        ]
+
+        joint_names = [
+            "joint_1",
+            "joint_2",
+            "joint_3",
+            "joint_4",
+            "joint_5",
+            "joint_6",
+            "joint_7",
+        ]
+
     # Load the model and data.
-    model = mujoco.MjModel.from_xml_path("universal_robots_ur5e/scene.xml")
     data = mujoco.MjData(model)
 
     # Override the simulation timestep.
@@ -33,30 +114,15 @@ def main() -> None:
 
     # End-effector site we wish to control, in this case a site attached to the last
     # link (wrist_3_link) of the robot.
-    site_id = model.site("attachment_site").id
+    site_id = model.site(control_point_name).id
 
     # Name of bodies we wish to apply gravity compensation to.
-    body_names = [
-        "shoulder_link",
-        "upper_arm_link",
-        "forearm_link",
-        "wrist_1_link",
-        "wrist_2_link",
-        "wrist_3_link",
-    ]
+    
     body_ids = [model.body(name).id for name in body_names]
     if gravity_compensation:
         model.body_gravcomp[body_ids] = 1.0
 
     # Get the dof and actuator ids for the joints we wish to control.
-    joint_names = [
-        "shoulder_pan",
-        "shoulder_lift",
-        "elbow",
-        "wrist_1",
-        "wrist_2",
-        "wrist_3",
-    ]
     dof_ids = np.array([model.joint(name).id for name in joint_names])
     # Note that actuator names are the same as joint names in this case.
     actuator_ids = np.array([model.actuator(name).id for name in joint_names])
