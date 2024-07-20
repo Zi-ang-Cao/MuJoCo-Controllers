@@ -1,7 +1,21 @@
+"""
+Differential IK controller for the Franka Panda robot arm. (7 joints)
+In the xml file, the actuator are in 'motor' type! This is important for the torque space controller to work.
+
+Usage: 
+    mjpython opspace.py -v original
+    mjpython opspace.py  -v robosuite # Default robot is kinova
+    mjpython opspace.py -n kuka  # Specify the robot to be kuka
+
+Author: @Zi-ang-Cao
+Date: July 2024
+"""
+
 import mujoco
 import mujoco.viewer
 import numpy as np
 import time
+import click
 
 # Cartesian impedance control gains.
 impedance_pos = np.asarray([100.0, 100.0, 100.0])  # [N/m]
@@ -32,11 +46,85 @@ gravity_compensation: bool = True
 dt: float = 0.002
 
 
-def main() -> None:
+@click.command()
+@click.option("--name_of_robot", "-n",
+              type=click.Choice(["kuka", "kinova"]), 
+    default="kinova", 
+    help="Name of the robot")
+@click.option("--version", "-v",
+              type=click.Choice(["robosuite", "original"]), 
+    default="jimmy", 
+    help="Name of the robot")
+def main(name_of_robot, version) -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
+    
+    print(f"Using robot: {name_of_robot}")
+    control_point_name = "attachment_site"
+    dof = 6 if name_of_robot in ["ur5", "ur5e"] else 7
+    if "ur5" in name_of_robot:
+        assert False, "UR5 is not supported in this script"
+        # Load the model and data.
+        model = mujoco.MjModel.from_xml_path("universal_robots_ur5e/scene.xml")
 
-    # Load the model and data.
-    model = mujoco.MjModel.from_xml_path("kuka_iiwa_14/scene.xml")
+        joint_names = [
+            "shoulder_pan",
+            "shoulder_lift",
+            "elbow",
+            "wrist_1",
+            "wrist_2",
+            "wrist_3",
+        ]
+    elif "franka" in name_of_robot or "panda" in name_of_robot:
+        assert False, "Franka/Panda is not supported in this script"
+        model = mujoco.MjModel.from_xml_path("franka_emika_panda/scene.xml")
+
+        joint_names = [
+            "joint1",
+            "joint2",
+            "joint3",
+            "joint4",
+            "joint5",
+            "joint6",
+            "joint7",
+        ]
+    elif "kuka" in name_of_robot:
+        model = mujoco.MjModel.from_xml_path("kuka_iiwa_14/scene.xml")
+
+        joint_names = [
+            "joint1",
+            "joint2",
+            "joint3",
+            "joint4",
+            "joint5",
+            "joint6",
+            "joint7",
+        ]
+    elif "kinova" in name_of_robot:
+        if version == "robosuite":
+            model = mujoco.MjModel.from_xml_path("kinova_gen3/scene_motor_robotsuite.xml")
+        else:
+            model = mujoco.MjModel.from_xml_path("kinova_gen3/scene_motor.xml")
+
+        body_names = [
+            "shoulder_link",
+            "half_arm_1_link",
+            "half_arm_2_link",
+            "forearm_link",
+            "spherical_wrist_1_link",
+            "spherical_wrist_2_link",
+            "bracelet_link",
+        ]
+
+        joint_names = [
+            "joint_1",
+            "joint_2",
+            "joint_3",
+            "joint_4",
+            "joint_5",
+            "joint_6",
+            "joint_7",
+        ]
+
     data = mujoco.MjData(model)
 
     model.opt.timestep = dt
@@ -55,15 +143,15 @@ def main() -> None:
     # Get the dof and actuator ids for the joints we wish to control. These are copied
     # from the XML file. Feel free to comment out some joints to see the effect on
     # the controller.
-    joint_names = [
-        "joint1",
-        "joint2",
-        "joint3",
-        "joint4",
-        "joint5",
-        "joint6",
-        "joint7",
-    ]
+    # joint_names = [
+    #     "joint1",
+    #     "joint2",
+    #     "joint3",
+    #     "joint4",
+    #     "joint5",
+    #     "joint6",
+    #     "joint7",
+    # ]
     dof_ids = np.array([model.joint(name).id for name in joint_names])
     actuator_ids = np.array([model.actuator(name).id for name in joint_names])
 
