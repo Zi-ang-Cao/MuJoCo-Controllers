@@ -7,6 +7,8 @@ Usage:
     mjpython diffik_nullspace.py  # Default robot is franka panda
     mjpython diffik_nullspace.py -n kinova
     mjpython diffik_nullspace.py -n ur5
+    mjpython diffik_nullspace.py -n mobi_dex
+
 
 Author: @Zi-ang-Cao
 Date: July 2024
@@ -50,7 +52,7 @@ max_angvel = 0.785
 
 @click.command()
 @click.option("--name_of_robot", "-n",
-              type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova"]), 
+              type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova", "mobi_dex"]), 
     default="franka", 
     help="Name of the robot")
 def main(name_of_robot) -> None:
@@ -112,6 +114,18 @@ def main(name_of_robot) -> None:
             "spherical_wrist_2_link",
             "bracelet_link",
         ]
+
+        joint_names = [
+            "joint_1",
+            "joint_2",
+            "joint_3",
+            "joint_4",
+            "joint_5",
+            "joint_6",
+            "joint_7",
+        ]
+    elif "mobi_dex" in name_of_robot:
+        model = mujoco.MjModel.from_xml_path("mobi_dex/scene.xml")
 
         joint_names = [
             "joint_1",
