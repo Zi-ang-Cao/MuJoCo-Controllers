@@ -41,10 +41,10 @@ def main(name_of_robot) -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
 
     print(f"Using robot: {name_of_robot}")
+    control_point_name = "attachment_site"
     if "ur5" in name_of_robot:
         # Load the model and data.
         model = mujoco.MjModel.from_xml_path("universal_robots_ur5e/scene.xml")
-        control_point_name = "attachment_site"
         body_names = [
             "shoulder_link",
             "upper_arm_link",
@@ -64,7 +64,6 @@ def main(name_of_robot) -> None:
         ]
     elif "franka" in name_of_robot or "panda" in name_of_robot:
         model = mujoco.MjModel.from_xml_path("franka_emika_panda/scene.xml")
-        control_point_name = "attachment_site"
         body_names = [
             "link1",
             "link2",
@@ -85,15 +84,15 @@ def main(name_of_robot) -> None:
             "joint7",
         ]
     elif "kinova" in name_of_robot:
-        model = mujoco.MjModel.from_xml_path("kinova_gen3_backup/scene.xml")
+        model = mujoco.MjModel.from_xml_path("kinova_gen3/scene.xml")
         body_names = [
-            "link1",
-            "link2",
-            "link3",
-            "link4",
-            "link5",
-            "link6",
-            "link7",
+            "shoulder_link",
+            "half_arm_1_link",
+            "half_arm_2_link",
+            "forearm_link",
+            "spherical_wrist_1_link",
+            "spherical_wrist_2_link",
+            "bracelet_link",
         ]
 
         joint_names = [
