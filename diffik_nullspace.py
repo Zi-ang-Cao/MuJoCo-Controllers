@@ -39,13 +39,11 @@ gravity_compensation: bool = True
 dt: float = 0.002
 
 # Nullspace P gain.
-Kn_8dof = np.asarray([0.0, 10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
 Kn_7dof = np.asarray([10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
 Kn_6dof = np.asarray([10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
 Kn = {
     6: Kn_6dof,
     7: Kn_7dof,
-    8: Kn_8dof,
 }
 
 # Maximum allowable joint velocity in rad/s.
@@ -63,6 +61,7 @@ def main(name_of_robot) -> None:
     print(f"Using robot: {name_of_robot}")
     control_point_name = "attachment_site"
     dof = 6 if name_of_robot in ["ur5", "ur5e"] else 7
+    partial_nullspace = False
     if "ur5" in name_of_robot:
         # Load the model and data.
         model = mujoco.MjModel.from_xml_path("universal_robots_ur5e/scene.xml")
@@ -127,11 +126,12 @@ def main(name_of_robot) -> None:
             "joint_7",
         ]
     elif "mobi_dex" in name_of_robot:
-        dof = 8
+        partial_nullspace = True
+        dof = 7
         model = mujoco.MjModel.from_xml_path("mobi_dex/scene.xml")
 
         joint_names = [
-            "joint_mobile_base_and_kinova_base",
+            # "joint_mobile_base_and_kinova_base",
             "joint_1",
             "joint_2",
             "joint_3",
@@ -139,6 +139,7 @@ def main(name_of_robot) -> None:
             "joint_5",
             "joint_6",
             "joint_7",
+            # "joint_eef_to_hand_palm",
         ]
 
     # Load the model and data.
@@ -208,8 +209,11 @@ def main(name_of_robot) -> None:
             # Damped least squares.
             dq = jac.T @ np.linalg.solve(jac @ jac.T + diag, twist)
 
-            # Nullspace control biasing joint velocities towards the home configuration.
-            dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn[dof] * (q0 - data.qpos[dof_ids]))
+            if partial_nullspace:
+                # For Mobi_dex, we only put nullspace control for the 7 joints that belong to the Kinova arm
+                dq += (eye - np.linalg.pinv(jac) @ jac)[:, :7] @ (Kn[7] * (q0[:7] - data.qpos[dof_ids][:7]))
+            else:
+                dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn[dof] * (q0 - data.qpos[dof_ids]))
 
             # Clamp maximum joint velocity.
             dq_abs_max = np.abs(dq).max()
