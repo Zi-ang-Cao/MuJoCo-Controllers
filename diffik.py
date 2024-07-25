@@ -11,6 +11,7 @@ Usage:
 Author: @Zi-ang-Cao
 Date: July 2024
 """
+
 import mujoco
 import mujoco.viewer
 import numpy as np
@@ -34,11 +35,15 @@ dt: float = 0.002
 # Maximum allowable joint velocity in rad/s. Set to 0 to disable.
 max_angvel = 0.0
 
+
 @click.command()
-@click.option("--name_of_robot", "-n",
-              type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova"]), 
-    default="ur5", 
-    help="Name of the robot")
+@click.option(
+    "--name_of_robot",
+    "-n",
+    type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova"]),
+    default="ur5",
+    help="Name of the robot",
+)
 def main(name_of_robot) -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
 
@@ -118,7 +123,7 @@ def main(name_of_robot) -> None:
     site_id = model.site(control_point_name).id
 
     # Name of bodies we wish to apply gravity compensation to.
-    
+
     body_ids = [model.body(name).id for name in body_names]
     if gravity_compensation:
         model.body_gravcomp[body_ids] = 1.0

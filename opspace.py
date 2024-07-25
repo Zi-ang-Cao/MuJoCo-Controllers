@@ -47,17 +47,23 @@ dt: float = 0.002
 
 
 @click.command()
-@click.option("--name_of_robot", "-n",
-              type=click.Choice(["kuka", "kinova"]), 
-    default="kinova", 
-    help="Name of the robot")
-@click.option("--version", "-v",
-              type=click.Choice(["robosuite", "original"]), 
-    default="jimmy", 
-    help="Name of the robot")
+@click.option(
+    "--name_of_robot",
+    "-n",
+    type=click.Choice(["kuka", "kinova"]),
+    default="kinova",
+    help="Name of the robot",
+)
+@click.option(
+    "--version",
+    "-v",
+    type=click.Choice(["robosuite", "original"]),
+    default="jimmy",
+    help="Name of the robot",
+)
 def main(name_of_robot, version) -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
-    
+
     print(f"Using robot: {name_of_robot}")
     control_point_name = "attachment_site"
     dof = 6 if name_of_robot in ["ur5", "ur5e"] else 7
@@ -101,7 +107,9 @@ def main(name_of_robot, version) -> None:
         ]
     elif "kinova" in name_of_robot:
         if version == "robosuite":
-            model = mujoco.MjModel.from_xml_path("kinova_gen3/scene_motor_robotsuite.xml")
+            model = mujoco.MjModel.from_xml_path(
+                "kinova_gen3/scene_motor_robotsuite.xml"
+            )
         else:
             model = mujoco.MjModel.from_xml_path("kinova_gen3/scene_motor.xml")
 

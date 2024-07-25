@@ -8,11 +8,12 @@ Usage:
     mjpython diffik_nullspace.py -n kinova
     mjpython diffik_nullspace.py -n ur5
     mjpython diffik_nullspace.py -n mobi_dex
-
+    mjpython diffik_nullspace.py -n mobi_dex -d  # Enable debug mode
 
 Author: @Zi-ang-Cao
 Date: July 2024
 """
+
 import mujoco
 import mujoco.viewer
 import numpy as np
@@ -51,13 +52,19 @@ max_angvel = 0.785
 
 
 @click.command()
-@click.option("--name_of_robot", "-n",
-              type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova", "mobi_dex"]), 
-    default="franka", 
-    help="Name of the robot")
-def main(name_of_robot) -> None:
+@click.option(
+    "--debug", "-d", type=bool, is_flag=True, default=False, help="Enable debug mode."
+)
+@click.option(
+    "--name_of_robot",
+    "-n",
+    type=click.Choice(["ur5", "ur5e", "franka", "panda", "kinova", "mobi_dex"]),
+    default="franka",
+    help="Name of the robot",
+)
+def main(debug, name_of_robot) -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
-    
+
     print(f"Using robot: {name_of_robot}")
     control_point_name = "attachment_site"
     dof = 6 if name_of_robot in ["ur5", "ur5e"] else 7
@@ -211,9 +218,13 @@ def main(name_of_robot) -> None:
 
             if partial_nullspace:
                 # For Mobi_dex, we only put nullspace control for the 7 joints that belong to the Kinova arm
-                dq += (eye - np.linalg.pinv(jac) @ jac)[:, :7] @ (Kn[7] * (q0[:7] - data.qpos[dof_ids][:7]))
+                dq += (eye - np.linalg.pinv(jac) @ jac)[:, :7] @ (
+                    Kn[7] * (q0[:7] - data.qpos[dof_ids][:7])
+                )
             else:
-                dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn[dof] * (q0 - data.qpos[dof_ids]))
+                dq += (eye - np.linalg.pinv(jac) @ jac) @ (
+                    Kn[dof] * (q0 - data.qpos[dof_ids])
+                )
 
             # Clamp maximum joint velocity.
             dq_abs_max = np.abs(dq).max()
@@ -231,6 +242,10 @@ def main(name_of_robot) -> None:
 
             viewer.sync()
             time_until_next_step = dt - (time.time() - step_start)
+
+            if debug:
+                print(f"control freq: {1.0 / (time.time() - step_start)}")
+
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
 
